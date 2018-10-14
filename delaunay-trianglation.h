@@ -1,7 +1,8 @@
 ﻿#pragma once
 
-#include <vector>
 #include <algorithm>
+#include <vector>
+#include <set>
 
 #include <Eigen/Dense>
 
@@ -36,7 +37,7 @@ private:
         Triangle(const VerticesType & points, int p1, int p2, int p3) :
             point_indices(p1, p2, p3)
         {
-            Matrix<T, 2, 2> D;
+            Eigen::Matrix<T, 2, 2> D;
             D.col(0) = points.col(p2) - points.col(p1);
             D.col(1) = points.col(p3) - points.col(p1);
 
@@ -66,7 +67,7 @@ private:
         }
 
 
-        Vector3i point_indices;
+        Eigen::Vector3i point_indices;
         VectorT center;
         double radius;
     };
@@ -95,7 +96,7 @@ public:
         // constructing the super triangle
         VectorT p1, p2, p3;
         {
-            Matrix<T, 2, 2> rotate_mat;
+            Eigen::Matrix<T, 2, 2> rotate_mat;
             const double theta = 3.1415926535 / 3;
             rotate_mat << std::cos(theta), std::sin(theta),
                          -std::sin(theta), std::cos(theta);
@@ -147,18 +148,19 @@ public:
         }
 
         // remove any triangle that has vertex of the super triangle
-        m_triangles.erase(
-            std::remove_if(
-                m_triangles.begin(),
-                m_triangles.end(),
-                [](const Triangle &t) {
-                    return t.has(m_num_vertices) || t.has(m_num_vertices+1) ||
-                            t.has(m_num_vertices+2);
-                }
-            ),
-            m_triangles.end()
-        );
-
+        {
+            int n = m_num_vertices;
+            m_triangles.erase(
+                std::remove_if(
+                    m_triangles.begin(),
+                    m_triangles.end(),
+                    [n](const Triangle &t) {
+                        return t.has(n) || t.has(n+1) || t.has(n+2);
+                    }
+                ),
+                m_triangles.end()
+            );
+        }
     }
 
     /**
@@ -213,7 +215,7 @@ private:
 
     // add edge into the polygon
     // remove the edge if it already exists
-    void add_edge_into_polygon(std::set<Edge> & ploygon, const Edge & e)
+    void add_edge_into_polygon(std::set<Edge> & polygon, const Edge & e)
     {
         auto result = polygon.insert(e);
         if (result.second == false) {
