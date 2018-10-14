@@ -33,16 +33,16 @@ private:
 
     struct Triangle
     {
-        Triangle(const VerticesType & vertices, int p1, int p2, int p3) :
+        Triangle(const VerticesType & points, int p1, int p2, int p3) :
             point_indices(p1, p2, p3)
         {
             Matrix<T, 2, 2> D;
-            D.col(0) = vertices.col(p2) - vertices.col(p1);
-            D.col(1) = vertices.col(p3) - vertices.col(p1);
+            D.col(0) = points.col(p2) - points.col(p1);
+            D.col(1) = points.col(p3) - points.col(p1);
 
             VectorT U = D.inverse() * D.colwise().squaredNorm().transpose();
             radius = U.norm();
-            center = U + vertices.col(p1);
+            center = U + points.col(p1);
         }
 
         bool has(int point_index) const
@@ -77,8 +77,8 @@ public:
      * @param vertices
      * The points to be trianglized. Each column is a point
      */
-    Delaunay(const VerticesType & vertices) : m_vertices(vertices),
-            m_num_vertices(vertices.cols())
+    Delaunay(const VerticesType & points) : m_points(points),
+            m_num_vertices(points.cols())
     {
     }
 
@@ -87,8 +87,8 @@ public:
      */
     void triangulate()
     {
-        VectorT minp = m_vertices.rowwise().minCoef();
-        VectorT maxp = m_vertices.rowwise().maxCoef();
+        VectorT minp = m_points.rowwise().minCoef();
+        VectorT maxp = m_points.rowwise().maxCoef();
         VectorT dp = maxp - minp;
         VectorT midp = (minp + maxp) / 2;
 
@@ -104,13 +104,13 @@ public:
             p3 = midp + rotate_mat.transpose() * dp;
         }
 
-        // add vertices of the super triangle into vertices
+        // add vertices of the super triangle into point list
         {
             int n = m_num_vertices;
-            m_vertices.conservetiveResize(2, n+3);
-            m_vertices.col(n) = p1;
-            m_vertices.col(n+1) = p2;
-            m_vertices.col(n+2) = p3;
+            m_points.conservetiveResize(2, n+3);
+            m_points.col(n) = p1;
+            m_points.col(n+1) = p2;
+            m_points.col(n+2) = p3;
         }
 
         // add the supper triangle into triangle list
@@ -124,7 +124,7 @@ public:
 
             std::set<Edge> polygon;
             for (auto & t : m_triangles) {
-                if (t.circumcircle_covers(m_vertices.col(i))) {
+                if (t.circumcircle_covers(m_points.col(i))) {
                     add_triangle_into_polygon(polygon, t);
                     t.invalidate();
                 }
@@ -224,7 +224,7 @@ private:
 private:
     std::vector<Triangle> m_triangles;
 
-    VerticesType m_vertices;
+    VerticesType m_points;
     int m_num_vertices;
 };
 
