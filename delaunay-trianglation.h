@@ -72,11 +72,19 @@ private:
     };
 
 public:
+    /**
+     * Constructor
+     * @param vertices
+     * The points to be trianglized. Each column is a point
+     */
     Delaunay(const VerticesType & vertices) : m_vertices(vertices),
             m_num_vertices(vertices.cols())
     {
     }
 
+    /**
+     * Start triangulation
+     */
     void triangulate()
     {
         VectorT minp = m_vertices.rowwise().minCoef();
@@ -153,7 +161,12 @@ public:
 
     }
 
-    // each column holds indices to the three points
+    /**
+     * Get triangles after triangulation
+     *
+     * @return
+     * each column holds indices to the three points in the original input
+     */
     Eigen::Matrix<int, 3, Eigen::Dynamic> get_triangles() const
     {
         int n = m_triangles.size();
@@ -164,7 +177,12 @@ public:
         return ret;
     }
 
-    // each column holds indices to the two points
+    /**
+     * Get triangles after triangulation
+     *
+     * @return
+     * each column holds indices to the two points in the original input
+     */
     Eigen::Matrix<int, 2, Eigen::Dynamic> get_edges() const
     {
         std::set<Edge> & edges;
