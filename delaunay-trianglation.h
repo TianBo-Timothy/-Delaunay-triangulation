@@ -24,7 +24,7 @@ private:
             }
         }
 
-        bool operator<(const Edge & rhs) {
+        bool operator<(const Edge & rhs) const {
             return std::make_pair(p1, p2) < std::make_pair(rhs.p1, rhs.p2);
         }
 
@@ -61,7 +61,7 @@ private:
             point_indices(0) = -1;
         }
 
-        void is_bad() const
+        bool is_bad() const
         {
             return (point_indices(0) == -1);
         }
@@ -88,8 +88,8 @@ public:
      */
     void triangulate()
     {
-        VectorT minp = m_points.rowwise().minCoef();
-        VectorT maxp = m_points.rowwise().maxCoef();
+        VectorT minp = m_points.rowwise().minCoeff();
+        VectorT maxp = m_points.rowwise().maxCoeff();
         VectorT dp = maxp - minp;
         VectorT midp = (minp + maxp) / 2;
 
@@ -108,7 +108,7 @@ public:
         // add vertices of the super triangle into point list
         {
             int n = m_num_vertices;
-            m_points.conservetiveResize(2, n+3);
+            m_points.conservativeResize(2, n+3);
             m_points.col(n) = p1;
             m_points.col(n+1) = p2;
             m_points.col(n+2) = p3;
@@ -117,7 +117,7 @@ public:
         // add the supper triangle into triangle list
         {
             int n = m_num_vertices;
-            m_triangles.push_back({n, n+1, n+2});
+            m_triangles.emplace_back(m_points, n, n+1, n+2);
         }
 
         // trianglate with new points
@@ -143,7 +143,7 @@ public:
 
             // create new triangles with point i and the polygon
             for(const auto & e : polygon) {
-                m_triangles.push_back(Triangle(e.p1, e.p2, i));
+                m_triangles.emplace_back(m_points, e.p1, e.p2, i);
             }
         }
 
@@ -187,7 +187,7 @@ public:
      */
     Eigen::Matrix<int, 2, Eigen::Dynamic> get_edges() const
     {
-        std::set<Edge> & edges;
+        std::set<Edge> edges;
         for (auto & t : m_triangles) {
             (void)edges.insert(Edge(t.point_indices(0), t.point_indices(1)));
             (void)edges.insert(Edge(t.point_indices(1), t.point_indices(2)));
@@ -208,9 +208,14 @@ private:
     // add edges of the triangle into the polygon
     void add_triangle_into_polygon(std::set<Edge> & ploygon, const Triangle & t)
     {
-        add_edge_into_polygon(Edge(t.point_indices(0), t.point_indices(1)));
-        add_edge_into_polygon(Edge(t.point_indices(1), t.point_indices(2)));
-        add_edge_into_polygon(Edge(t.point_indices(0), t.point_indices(2)));
+        add_edge_into_polygon(ploygon,
+                              Edge(t.point_indices(0), t.point_indices(1)));
+
+        add_edge_into_polygon(ploygon,
+                              Edge(t.point_indices(1), t.point_indices(2)));
+
+        add_edge_into_polygon(ploygon,
+                              Edge(t.point_indices(0), t.point_indices(2)));
     }
 
     // add edge into the polygon
