@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <vector>
+#include <map>
 #include <set>
 
 #include <Eigen/Dense>
@@ -46,6 +47,8 @@ private:
 
             radius = U.norm();
             center = U + points.col(p1);
+
+            child_triangle_indices.setConstant(-1);
         }
 
         bool has(int point_index) const
@@ -68,10 +71,20 @@ private:
             return (point_indices(0) == -1);
         }
 
+        bool has_child() const
+        {
+            return child_triangle_indices(0) > 0;
+        }
+
+        bool is_super(int n) const
+        {
+            return (point_indices.array() >= n).any();
+        }
 
         Eigen::Vector3i point_indices;
         VectorT center;
         double radius;
+        Eigen::Vector3i child_triangle_indices;
     };
 
 public:
@@ -95,28 +108,9 @@ public:
         // trianglate with new points
         for (int i = 0; i < m_num_vertices; ++i) {
 
-            std::set<Edge> polygon;
-            for (auto & t : m_triangles) {
-                if (t.circumcircle_covers(m_points.col(i))) {
-                    add_triangle_into_polygon(polygon, t);
-                    t.invalidate();
-                }
-            }
-
-            // remove 'bad' triangles
-            m_triangles.erase(
-                std::remove_if(
-                    begin(m_triangles),
-                    end(m_triangles),
-                    [](const Triangle &t){ return t.is_bad(); }
-                ),
-                end(m_triangles)
-            );
-
-            // create new triangles with point i and the polygon
-            for(const auto & e : polygon) {
-                m_triangles.emplace_back(m_points, e.p1, e.p2, i);
-            }
+            std::map<Edge, int> edges; // edges and their owner triangle
+            collect_edges(edges, 0, i);
+            reconstruct(edges, i);
         }
 
         // remove any triangle that has vertex of the super triangle
@@ -127,7 +121,7 @@ public:
                     m_triangles.begin(),
                     m_triangles.end(),
                     [n](const Triangle &t) {
-                        return t.has(n) || t.has(n+1) || t.has(n+2);
+                        return t.is_super(n) || t.has_child();
                     }
                 ),
                 m_triangles.end()
@@ -214,6 +208,59 @@ private:
 
         // add the supper triangle into triangle list
         m_triangles.emplace_back(m_points, n, n+1, n+2);
+    }
+
+    // edge and its owner triangle
+    void collect_edges(std::map<Edge, int> & edges, int triangle_index,
+                       int point_index) const
+    {
+        const Triangle & t = m_triangles[triangle_index];
+        if (t.circumcircle_covers(m_points.col(point_index))) {
+            if (t.has_child()) {
+                for (int i = 0; i < 3; ++i) {
+                    int cti = t.child_triangle_indices(i);
+                    if (cti > 0) {
+                        collect_edges(edges, cti, point_index);
+                    }
+                    else {
+                        break;
+                    }
+                }
+            }
+            else {
+                // leaf triangle
+                auto insert = [&](int p1, int p2, int t) {
+                    auto result = edges.insert(std::make_pair(Edge(p1, p2), t));
+                    if (result.second == false) {
+                        edges.erase(result.first);
+                    }
+                };
+
+                insert(t.point_indices(0), t.point_indices(1), triangle_index);
+                insert(t.point_indices(1), t.point_indices(2), triangle_index);
+                insert(t.point_indices(0), t.point_indices(2), triangle_index);
+            }
+        }
+        else {
+            // do nothing if the point is not covered
+        }
+    }
+
+    void reconstruct(std::map<Edge, int> & edges, int point_index)
+    {
+        for (auto & item : edges) {
+            size_t n = m_triangles.size();
+            m_triangles.emplace_back(m_points, item.first.p1, item.first.p2,
+                                     point_index);
+
+            Triangle & parent_triangle = m_triangles[item.second];
+            for (int i = 0; i < 3; ++i) {
+                if (parent_triangle.child_triangle_indices(i) == -1) {
+                    parent_triangle.child_triangle_indices(i) = n;
+                    break;
+                }
+            }
+        }
     }
 
     // add edges of the triangle into the polygon
