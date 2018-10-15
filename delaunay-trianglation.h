@@ -90,44 +90,7 @@ public:
      */
     void triangulate()
     {
-        VectorT minp = m_points.rowwise().minCoeff();
-        VectorT maxp = m_points.rowwise().maxCoeff();
-        VectorT dp = maxp - minp;
-        VectorT midp = (minp + maxp) / 2;
-
-        // constructing the super triangle
-        VectorT p1, p2, p3;
-        {
-            Eigen::Matrix<T, 2, 2> rotate_mat;
-            constexpr double theta = 2.0/3.0 * 3.141592653589;
-            rotate_mat << std::cos(theta), std::sin(theta),
-                         -std::sin(theta), std::cos(theta);
-            p1 = midp + dp;
-            p2 = midp + rotate_mat * dp;
-            p3 = midp + rotate_mat.transpose() * dp;
-
-            if (m_debug) {
-                std::ofstream("super.dat") << p1.transpose() << "\n"
-                    << p2.transpose() << "\n"
-                    << p3.transpose() << "\n"
-                    << p1.transpose() << "\n";
-            }
-        }
-
-        // add vertices of the super triangle into point list
-        {
-            int n = m_num_vertices;
-            m_points.conservativeResize(2, n+3);
-            m_points.col(n) = p1;
-            m_points.col(n+1) = p2;
-            m_points.col(n+2) = p3;
-        }
-
-        // add the supper triangle into triangle list
-        {
-            int n = m_num_vertices;
-            m_triangles.emplace_back(m_points, n, n+1, n+2);
-        }
+        create_super_triangle();
 
         // trianglate with new points
         for (int i = 0; i < m_num_vertices; ++i) {
@@ -215,6 +178,44 @@ public:
     }
 
 private:
+
+    void create_super_triangle()
+    {
+        VectorT minp = m_points.rowwise().minCoeff();
+        VectorT maxp = m_points.rowwise().maxCoeff();
+        VectorT dp = maxp - minp;
+        VectorT midp = (minp + maxp) / 2;
+
+        // constructing the super triangle
+        VectorT p1, p2, p3;
+        {
+            Eigen::Matrix<T, 2, 2> rotate_mat;
+            constexpr double theta = 2.0/3.0 * 3.141592653589;
+            rotate_mat << std::cos(theta), std::sin(theta),
+                         -std::sin(theta), std::cos(theta);
+            p1 = midp + dp;
+            p2 = midp + rotate_mat * dp;
+            p3 = midp + rotate_mat.transpose() * dp;
+
+            if (m_debug) {
+                std::ofstream("super.dat") << p1.transpose() << "\n"
+                    << p2.transpose() << "\n"
+                    << p3.transpose() << "\n"
+                    << p1.transpose() << "\n";
+            }
+        }
+
+        // add vertices of the super triangle into point list
+        int n = m_num_vertices;
+        m_points.conservativeResize(2, n+3);
+        m_points.col(n) = p1;
+        m_points.col(n+1) = p2;
+        m_points.col(n+2) = p3;
+
+        // add the supper triangle into triangle list
+        m_triangles.emplace_back(m_points, n, n+1, n+2);
+    }
+
     // add edges of the triangle into the polygon
     void add_triangle_into_polygon(std::set<Edge> & ploygon, const Triangle & t)
     {
