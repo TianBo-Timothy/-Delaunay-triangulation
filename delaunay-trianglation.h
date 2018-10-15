@@ -41,7 +41,9 @@ private:
             D.col(0) = points.col(p2) - points.col(p1);
             D.col(1) = points.col(p3) - points.col(p1);
 
-            VectorT U = D.inverse() * D.colwise().squaredNorm().transpose();
+            VectorT U = 0.5 * D.transpose().inverse() *
+                        D.colwise().squaredNorm().transpose();
+
             radius = U.norm();
             center = U + points.col(p1);
         }
@@ -97,12 +99,19 @@ public:
         VectorT p1, p2, p3;
         {
             Eigen::Matrix<T, 2, 2> rotate_mat;
-            const double theta = 3.1415926535 / 3;
+            constexpr double theta = 2.0/3.0 * 3.141592653589;
             rotate_mat << std::cos(theta), std::sin(theta),
                          -std::sin(theta), std::cos(theta);
             p1 = midp + dp;
             p2 = midp + rotate_mat * dp;
             p3 = midp + rotate_mat.transpose() * dp;
+
+            if (m_debug) {
+                std::ofstream("super.dat") << p1.transpose() << "\n"
+                    << p2.transpose() << "\n"
+                    << p3.transpose() << "\n"
+                    << p1.transpose() << "\n";
+            }
         }
 
         // add vertices of the super triangle into point list
@@ -174,7 +183,7 @@ public:
         int n = m_triangles.size();
         Eigen::Matrix<int, 3, Eigen::Dynamic> ret(3, n);
         for (int i = 0; i < n; ++i) {
-            ret.col(i) = m_triangles.point_indices;
+            ret.col(i) = m_triangles[i].point_indices;
         }
         return ret;
     }
@@ -199,6 +208,7 @@ public:
         int i = 0;
         for (const auto & item : edges) {
             ret.col(i) << item.p1, item.p2;
+            ++i;
         }
 
         return ret;
@@ -233,5 +243,7 @@ private:
 
     VerticesType m_points;
     int m_num_vertices;
+
+    const bool m_debug = false;
 };
 
