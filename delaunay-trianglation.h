@@ -51,24 +51,9 @@ private:
             child_triangle_indices.setConstant(-1);
         }
 
-        bool has(int point_index) const
-        {
-            return (point_indices.array() == point_index).any();
-        }
-
         bool circumcircle_covers(const VectorT & p) const
         {
             return (p - center).norm() <= radius;
-        }
-
-        void invalidate()
-        {
-            point_indices(0) = -1;
-        }
-
-        bool is_bad() const
-        {
-            return (point_indices(0) == -1);
         }
 
         bool has_child() const
@@ -113,7 +98,7 @@ public:
             reconstruct(edges, i);
         }
 
-        // remove any triangle that has vertex of the super triangle
+        // remove any triangle that has child or has vertex of the super triangle
         {
             int n = m_num_vertices;
             m_triangles.erase(
@@ -260,29 +245,6 @@ private:
                     break;
                 }
             }
-        }
-    }
-
-    // add edges of the triangle into the polygon
-    void add_triangle_into_polygon(std::set<Edge> & ploygon, const Triangle & t)
-    {
-        add_edge_into_polygon(ploygon,
-                              Edge(t.point_indices(0), t.point_indices(1)));
-
-        add_edge_into_polygon(ploygon,
-                              Edge(t.point_indices(1), t.point_indices(2)));
-
-        add_edge_into_polygon(ploygon,
-                              Edge(t.point_indices(0), t.point_indices(2)));
-    }
-
-    // add edge into the polygon
-    // remove the edge if it already exists
-    void add_edge_into_polygon(std::set<Edge> & polygon, const Edge & e)
-    {
-        auto result = polygon.insert(e);
-        if (result.second == false) {
-            polygon.erase(result.first);
         }
     }
 
