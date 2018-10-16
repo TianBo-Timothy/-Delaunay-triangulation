@@ -165,7 +165,8 @@ private:
         VectorT dp = maxp - minp;
         VectorT center = (minp + maxp) / 2;
 
-        dp *= 1.2;    // make it slightly bigger
+        dp *= 10;    // make it much larger than the scale of the point set
+                     // it is crucial to make the super triangle removable
 
         // constructing the super triangle
         VectorT p1, p2, p3;
