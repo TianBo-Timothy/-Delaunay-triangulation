@@ -163,18 +163,24 @@ private:
         VectorT minp = m_points.rowwise().minCoeff();
         VectorT maxp = m_points.rowwise().maxCoeff();
         VectorT dp = maxp - minp;
-        VectorT midp = (minp + maxp) / 2;
+        VectorT center = (minp + maxp) / 2;
+
+        dp *= 1.2;    // make it slightly bigger
 
         // constructing the super triangle
         VectorT p1, p2, p3;
         {
-            Eigen::Matrix<T, 2, 2> rotate_mat;
             constexpr double theta = 2.0/3.0 * 3.141592653589;
-            rotate_mat << std::cos(theta), std::sin(theta),
-                         -std::sin(theta), std::cos(theta);
-            p1 = midp + dp;
-            p2 = midp + rotate_mat * dp;
-            p3 = midp + rotate_mat.transpose() * dp;
+            double c = std::cos(theta);
+            double s = std::sin(theta);
+
+            Eigen::Matrix<T, 2, 2> rotate_mat;
+            rotate_mat << c, s,
+                         -s, c;
+
+            p1 = center + dp;
+            p2 = center + rotate_mat * dp;
+            p3 = center + rotate_mat.transpose() * dp;
 
             if (m_debug) {
                 std::ofstream("super.dat") << p1.transpose() << "\n"
