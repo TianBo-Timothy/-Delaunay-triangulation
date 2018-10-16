@@ -214,16 +214,19 @@ private:
             }
             else {
                 // leaf triangle
-                auto insert = [&](int p1, int p2, int t) {
-                    auto result = edges.insert(std::make_pair(Edge(p1, p2), t));
+                auto insert = [&](int v1, int v2) {
+                    int p1 = t.point_indices(v1);
+                    int p2 = t.point_indices(v2);
+                    auto result = edges.insert(
+                            std::make_pair(Edge(p1, p2), triangle_index));
                     if (result.second == false) {
                         edges.erase(result.first);
                     }
                 };
 
-                insert(t.point_indices(0), t.point_indices(1), triangle_index);
-                insert(t.point_indices(1), t.point_indices(2), triangle_index);
-                insert(t.point_indices(0), t.point_indices(2), triangle_index);
+                insert(0, 1);
+                insert(1, 2);
+                insert(0, 2);
             }
         }
         else {
@@ -234,7 +237,7 @@ private:
     void reconstruct(std::map<Edge, int> & edges, int point_index)
     {
         for (auto & item : edges) {
-            size_t n = m_triangles.size();
+            int n = (int)m_triangles.size();
             m_triangles.emplace_back(m_points, item.first.p1, item.first.p2,
                                      point_index);
 
