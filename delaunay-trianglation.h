@@ -69,6 +69,7 @@ private:
         Eigen::Vector3i point_indices;
         VectorT center;
         double radius;
+        bool bad;
         Eigen::Vector3i child_triangle_indices;
     };
 
@@ -106,7 +107,7 @@ public:
                     m_triangles.begin(),
                     m_triangles.end(),
                     [n](const Triangle &t) {
-                        return t.is_super(n) || t.has_child();
+                        return t.is_super(n) || t.bad;
                     }
                 ),
                 m_triangles.end()
@@ -204,10 +205,11 @@ private:
 
     // edge and its owner triangle
     void collect_edges(std::map<Edge, int> & edges, int triangle_index,
-                       int point_index) const
+                       int point_index)
     {
-        const Triangle & t = m_triangles[triangle_index];
+        Triangle & t = m_triangles[triangle_index];
         if (t.circumcircle_covers(m_points.col(point_index))) {
+            t.bad = true;
             if (t.has_child()) {
                 for (int i = 0; i < 3; ++i) {
                     int cti = t.child_triangle_indices(i);
