@@ -5,7 +5,7 @@
 #include <map>
 #include <set>
 
-#include <Eigen/Dense>
+#include <Eigen/Geometry>
 
 template<typename T>
 class Delaunay
@@ -169,28 +169,15 @@ private:
         dp *= 10;    // make it much larger than the scale of the point set
                      // it is crucial to make the super triangle removable
 
-        // constructing the super triangle
-        VectorT p1, p2, p3;
-        {
-            constexpr double theta = 2.0/3.0 * 3.141592653589;
-            double c = std::cos(theta);
-            double s = std::sin(theta);
+        // constructing the super triangle vertices into point list
 
-            Eigen::Matrix<T, 2, 2> rotate_mat;
-            rotate_mat << c, s,
-                         -s, c;
+        Eigen::Rotation2D<T> rotation(2.0/3.0 * EIGEN_PI);
 
-            p1 = center + dp;
-            p2 = center + rotate_mat * dp;
-            p3 = center + rotate_mat.transpose() * dp;
-        }
-
-        // add vertices of the super triangle into point list
         int n = m_num_vertices;
         m_points.conservativeResize(2, n+3);
-        m_points.col(n) = p1;
-        m_points.col(n+1) = p2;
-        m_points.col(n+2) = p3;
+        m_points.col(n) = center + dp;
+        m_points.col(n+1) = center + rotation * dp;
+        m_points.col(n+2) = center + rotation.inverse() * dp;
 
         // add the supper triangle into triangle list
         m_triangles.emplace_back(m_points, n, n+1, n+2);
