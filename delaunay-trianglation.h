@@ -183,13 +183,6 @@ private:
             p1 = center + dp;
             p2 = center + rotate_mat * dp;
             p3 = center + rotate_mat.transpose() * dp;
-
-            if (m_debug) {
-                std::ofstream("super.dat") << p1.transpose() << "\n"
-                    << p2.transpose() << "\n"
-                    << p3.transpose() << "\n"
-                    << p1.transpose() << "\n";
-            }
         }
 
         // add vertices of the super triangle into point list
@@ -265,7 +258,5 @@ private:
 
     VerticesType m_points;
     int m_num_vertices;
-
-    const bool m_debug = false;
 };
 
