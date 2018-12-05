@@ -67,6 +67,20 @@ private:
         }
 
         Eigen::Vector3i point_indices;
+
+        /*
+         * Let edge i of the triangle be:
+         * edge 0: (point_indices[0], point_indices[1])
+         * edge 1: (point_indices[1], point_indices[2])
+         * edge 2: (point_indices[2], point_indices[0])
+         *
+         * linked triangles are
+         * 1. child trianlges, if the triangle is a parent triangle
+         *    in this case, linked_triangles[i] is constructed with edge i
+         * 2. neighbor triangles, if the triangle is a leaf triangle
+         *    in this case, linked_triangles[i] shares the edge i
+         */
+        Eigen::Vector3i linked_triangles;
         VectorT center;
         double radius;
         bool bad;
@@ -93,6 +107,10 @@ public:
 
         // trianglate with new points
         for (int i = 0; i < m_num_vertices; ++i) {
+
+            std::set<int> bt = find_bad_triangles(i);
+            Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
+            reconstruct(polygon, i);
 
             std::map<Edge, int> edges; // edges and their owner triangle
             collect_edges(edges, 0, i);
@@ -181,6 +199,180 @@ private:
 
         // add the supper triangle into triangle list
         m_triangles.emplace_back(m_points, n, n+1, n+2);
+    }
+
+    /*
+     * find all bad triangles whose circumcircle covers the given point
+     *
+     * It searches the bad triangle tree rooted by the super triangle to get one bad leaf triangle
+     * and then finds the leaf bad triangles by searching the neighbors of the first-found bad
+     * leaf triangle
+     */
+    std::set<int> find_bad_triangles(int point_index) const {
+        std::set<int> triangles;
+
+        int bt;
+        {
+            // find a bad triangle vetically
+            auto result = find_bad_triangle_recur(0, point_index);
+            assert(result.first);
+
+            bt = result.second;
+        }
+
+        // then find bad triangles horizontally
+        find_bad_triangles(bt, point_index, triangles);
+
+        return  triangles;
+    }
+
+    /*
+     * search for a bad triangle that covers the point in the given triangle and its descendents
+     */
+    std::pair<bool, int> find_bad_triangle_recur(int triangle_index, int point_index) const
+    {
+        const Triangle & t = m_triangles[triangle_index];
+
+        if (t.has_child()) {
+            for (int i = 0; i < 3; ++i) {
+                int cti = t.child_triangle_indices(i);
+                if (cti > 0) {
+                    auto result = find_bad_triangle_recur(cti, point_index);
+                    if (result.first) {
+                        return  result;
+                    }
+                }
+            }
+        }
+        else {
+            if (t.circumcircle_covers(m_points.col(point_index))) {
+                return std::make_pair(true, triangle_index);
+            }
+        }
+
+        return std::make_pair(false, -1);
+    }
+
+    // find leaf bad triangles by searching neighbors
+    void find_bad_triangles(int triangle_index, int point_index, std::set<int>& triangles) const
+    {
+        if (triangle_index == -1) {
+            return;
+        }
+
+        auto it = triangles.find(triangle_index);
+        if (it != triangles.end()) {
+            // has been added, ignore it
+            return;
+        }
+
+        const Triangle & t = m_triangles[triangle_index];
+        if (!t.circumcircle_covers(m_points.col(point_index))) {
+            return;
+        }
+
+        triangles.insert(triangle_index);
+
+        for (int i = 0; i < 3; ++i) {
+            find_bad_triangles(t.linked_triangles(i), point_index, triangles);
+        }
+    }
+
+    /*
+     * get surrouding polygon based on collected bad triangles
+     *
+     * The result is matrix of indices, each column of it holds:
+     * vertex, parent triangle and neighbor triangle
+     *
+     * Vertex[i] and vertex[i+1] forms edges i and the parent triangle is the triangle that formally
+     * holds the edge. Note that edges belong to two bad triangles will be removed, so that for each
+     * edge, there will be only one parent.
+     *
+     * The neighor triangle for the edge is the 'normal' triangle that shares the edge. This is to
+     * be used to fill in the neighbor record for the new triangles.
+     */
+    Eigen::MatrixXi get_surrouding_polygon(std::set<int> & triangle_index) const
+    {
+        auto reverse = [](const std::pair<int, int>& p) {
+            return std::make_pair(p.second, p.first);
+        };
+
+        // from edge to (parent, neighbor)
+        std::map<std::pair<int, int>, std::pair<int, int>> edge_records;
+
+        for (int ti : triangle_index) {
+            const Triangle & t = m_triangles[ti];
+
+            for (int i = 0; i < 3; ++i) {
+                int j = (i+1) % 3;
+                auto edge = std::make_pair(t.point_indices(i), t.point_indices(j));
+
+                auto it = edge_records.find(reverse(edge));
+                if (it != edge_records.end()) {
+                    // this edge was added by another bad triangle, that means this edge is internal
+                    // it cannot be used to contruct new triangles.
+                    edge_records.erase(it);
+                }
+                else {
+                    int neighbor = t.linked_triangles(i);
+                    edge_records[edge] = std::make_pair(ti, neighbor);
+                }
+            }
+        }
+
+        // convert the map to matrix
+        int n = (int)edge_records.size();
+        Eigen::MatrixXi ret(3, n);
+        auto it = edge_records.begin();
+        int i = 0;
+        do {
+            ret(0, i) = it->first.first;
+            ret(1, i) = it->second.first;
+            ret(2, i) = it->second.second;
+
+            it = edge_records.lower_bound(std::make_pair(it->first.second, 0));
+            ++i;
+        } while (it != edge_records.begin() && it != edge_records.end());
+
+        assert(i == n);
+
+        return ret;
+    }
+
+    void reconstruct(const Eigen::MatrixXi & polygon, int point_index)
+    {
+        int n = polygon.cols();
+        for (int i = 0; i < n; ++i) {
+            int p1 = polygon(0, i);
+            int j = (i+1) % n;
+            int p2 = polygon(0, j);
+
+            int ti = (int)m_triangles.size();   // index to the new triangle
+
+            m_triangles.emplace_back(m_points, p1, p2, point_index);
+
+            // set link from parent to this triangle
+            Triangle & parent_triangle = m_triangles[polygon(1, i)];
+            for (int j = 0; j < 3; ++j) {
+                if (parent_triangle.point_indices[j] == p1) {
+                    parent_triangle.linked_triangles[j] = ti;
+                    break;
+                }
+            }
+
+            // set neighbor
+            Triangle & neighbor_triangle = m_triangles[polygon(2, i)];
+            for (int j = 0; j < 3; ++j) {
+                // the neighbor triangle has the edge p2->p1
+                if (neighbor_triangle.point_indices[j] == p2) {
+                    neighbor_triangle.linked_triangles[j] = ti;
+
+                    break;
+                }
+            }
+        }
+
+
     }
 
     // edge and its owner triangle
