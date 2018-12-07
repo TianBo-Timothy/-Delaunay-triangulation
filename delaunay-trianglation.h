@@ -106,7 +106,7 @@ public:
                     m_triangles.begin(),
                     m_triangles.end(),
                     [n](const Triangle &t) {
-                        return t.is_super(n) || t.has_child();
+                        return t.has_child() || t.is_super(n);
                     }
                 ),
                 m_triangles.end()
