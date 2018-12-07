@@ -15,23 +15,6 @@ public:
     using VerticesType = Eigen::Matrix<T, 2, Eigen::Dynamic>;
 
 private:
-    struct Edge
-    {
-        Edge(int _p1, int _p2) :
-            p1(_p1), p2(_p2)
-        {
-            if (p1 > p2) {
-                std::swap(p1, p2);
-            }
-        }
-
-        bool operator<(const Edge & rhs) const {
-            return std::make_pair(p1, p2) < std::make_pair(rhs.p1, rhs.p2);
-        }
-
-        int p1;
-        int p2;
-    };
 
     struct Triangle
     {
@@ -92,9 +75,10 @@ public:
      * @param vertices
      * The points to be trianglized. Each column is a point
      */
-    Delaunay(const VerticesType & points) : m_points(points),
+    Delaunay(const VerticesType & points) : m_points(2, points.cols()+3),
             m_num_vertices(points.cols())
     {
+        m_points.leftCols(m_num_vertices) = points;
     }
 
     /**
@@ -154,18 +138,29 @@ public:
      */
     Eigen::Matrix<int, 2, Eigen::Dynamic> get_edges() const
     {
-        std::set<Edge> edges;
-        for (auto & t : m_triangles) {
-            (void)edges.insert(Edge(t.point_indices(0), t.point_indices(1)));
-            (void)edges.insert(Edge(t.point_indices(1), t.point_indices(2)));
-            (void)edges.insert(Edge(t.point_indices(2), t.point_indices(0)));
+        std::set<std::pair<int, int>> edges;
+        auto insert = [&](const Triangle & t, int a, int b) {
+            int p1 = t.point_indices(a);
+            int p2 = t.point_indices(b);
+
+            if (p1 > p2) {
+                std::swap(p1, p2);
+            }
+            (void) edges.insert(std::make_pair(p1, p2));
+        };
+
+        for (const auto & t : m_triangles) {
+            insert(t, 0, 1);
+            insert(t, 1, 2);
+            insert(t, 2, 0);
         }
 
+        // convert set to matrix
         int n = edges.size();
         Eigen::Matrix<int, 2, Eigen::Dynamic> ret(2, n);
         int i = 0;
         for (const auto & item : edges) {
-            ret.col(i) << item.p1, item.p2;
+            ret.col(i) << item.first, item.second;
             ++i;
         }
 
@@ -176,8 +171,8 @@ private:
 
     void create_super_triangle()
     {
-        VectorT minp = m_points.rowwise().minCoeff();
-        VectorT maxp = m_points.rowwise().maxCoeff();
+        VectorT minp = m_points.leftCols(m_num_vertices).rowwise().minCoeff();
+        VectorT maxp = m_points.leftCols(m_num_vertices).rowwise().maxCoeff();
         VectorT dp = maxp - minp;
         VectorT center = (minp + maxp) / 2;
 
@@ -189,7 +184,6 @@ private:
         Eigen::Rotation2D<T> rotation(2.0/3.0 * EIGEN_PI);
 
         int n = m_num_vertices;
-        m_points.conservativeResize(2, n+3);
         m_points.col(n) = center + dp;
         m_points.col(n+1) = center + rotation * dp;
         m_points.col(n+2) = center + rotation.inverse() * dp;
