@@ -110,6 +110,8 @@ public:
 
             std::set<int> bt = find_bad_triangles(i);
             Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
+            set_as_parent(bt);
+
             reconstruct(polygon, i);
         }
 
@@ -335,6 +337,14 @@ private:
         return ret;
     }
 
+    void set_as_parent(const std::set<int> & triangle_index) {
+        for (int ti : triangle_index) {
+            Triangle &t = m_triangles[ti];
+            t.is_parent = true;
+            t.linked_triangles.setConstant(-1);
+        }
+    }
+
     void reconstruct(const Eigen::MatrixXi & polygon, int point_index)
     {
         int ti_base = (int)m_triangles.size();  // index to the first added triangle
@@ -352,10 +362,6 @@ private:
 
             // set link from parent to this triangle
             Triangle & parent_triangle = m_triangles[polygon(1, i)];
-            if (!parent_triangle.is_parent) {
-                parent_triangle.is_parent = true;
-                parent_triangle.linked_triangles.setConstant(-1);
-            }
             for (int j = 0; j < 3; ++j) {
                 if (parent_triangle.point_indices[j] == p1) {
                     parent_triangle.linked_triangles[j] = ti;
