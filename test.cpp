@@ -14,7 +14,7 @@ using namespace Eigen;
 
 /*
  * visualization command
- gnuplot -p -e "set size ratio -1; plot 'edges.dat' u 1:2:(\$3-\$1):(\$4-\$2) w vector notitle, 'points.dat' u 1:2 w p, 'super.dat'  u 1:2 w l notitle"
+ gnuplot -p -e "set size ratio -1; plot 'edges.dat' u 1:2:(\$3-\$1):(\$4-\$2) w vector notitle, 'points.dat' u 1:2:0 w labels offset 0, char 1 notitle"
  */
 void test(int n)
 {
