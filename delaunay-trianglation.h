@@ -83,7 +83,6 @@ private:
         Eigen::Vector3i linked_triangles;
         VectorT center;
         double radius;
-        bool bad = false;
         bool is_parent = false;
     };
 
