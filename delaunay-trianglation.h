@@ -48,7 +48,7 @@ private:
             radius = U.norm();
             center = U + points.col(p1);
 
-            child_triangle_indices.setConstant(-1);
+            linked_triangles.setConstant(-1);
         }
 
         bool circumcircle_covers(const VectorT & p) const
@@ -58,7 +58,7 @@ private:
 
         bool has_child() const
         {
-            return child_triangle_indices(0) > 0;
+            return is_parent;
         }
 
         bool is_super(int n) const
@@ -83,8 +83,8 @@ private:
         Eigen::Vector3i linked_triangles;
         VectorT center;
         double radius;
-        bool bad;
-        Eigen::Vector3i child_triangle_indices;
+        bool bad = false;
+        bool is_parent = false;
     };
 
 public:
@@ -111,10 +111,6 @@ public:
             std::set<int> bt = find_bad_triangles(i);
             Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
             reconstruct(polygon, i);
-
-            std::map<Edge, int> edges; // edges and their owner triangle
-            collect_edges(edges, 0, i);
-            reconstruct(edges, i);
         }
 
         // remove any triangle that has child or has vertex of the super triangle
@@ -125,7 +121,7 @@ public:
                     m_triangles.begin(),
                     m_triangles.end(),
                     [n](const Triangle &t) {
-                        return t.is_super(n) || t.bad;
+                        return t.is_super(n) || t.has_child();
                     }
                 ),
                 m_triangles.end()
@@ -235,7 +231,7 @@ private:
 
         if (t.has_child()) {
             for (int i = 0; i < 3; ++i) {
-                int cti = t.child_triangle_indices(i);
+                int cti = t.linked_triangles(i);
                 if (cti > 0) {
                     auto result = find_bad_triangle_recur(cti, point_index);
                     if (result.first) {
@@ -291,7 +287,7 @@ private:
      * The neighor triangle for the edge is the 'normal' triangle that shares the edge. This is to
      * be used to fill in the neighbor record for the new triangles.
      */
-    Eigen::MatrixXi get_surrouding_polygon(std::set<int> & triangle_index) const
+    Eigen::MatrixXi get_surrouding_polygon(const std::set<int> & triangle_index) const
     {
         auto reverse = [](const std::pair<int, int>& p) {
             return std::make_pair(p.second, p.first);
@@ -341,6 +337,8 @@ private:
 
     void reconstruct(const Eigen::MatrixXi & polygon, int point_index)
     {
+        int ti_base = (int)m_triangles.size();  // index to the first added triangle
+
         int n = polygon.cols();
         for (int i = 0; i < n; ++i) {
             int p1 = polygon(0, i);
@@ -350,9 +348,14 @@ private:
             int ti = (int)m_triangles.size();   // index to the new triangle
 
             m_triangles.emplace_back(m_points, p1, p2, point_index);
+            Triangle & current_triangle = m_triangles.back();
 
             // set link from parent to this triangle
             Triangle & parent_triangle = m_triangles[polygon(1, i)];
+            if (!parent_triangle.is_parent) {
+                parent_triangle.is_parent = true;
+                parent_triangle.linked_triangles.setConstant(-1);
+            }
             for (int j = 0; j < 3; ++j) {
                 if (parent_triangle.point_indices[j] == p1) {
                     parent_triangle.linked_triangles[j] = ti;
@@ -361,74 +364,23 @@ private:
             }
 
             // set neighbor
-            Triangle & neighbor_triangle = m_triangles[polygon(2, i)];
-            for (int j = 0; j < 3; ++j) {
-                // the neighbor triangle has the edge p2->p1
-                if (neighbor_triangle.point_indices[j] == p2) {
-                    neighbor_triangle.linked_triangles[j] = ti;
+            int ti_neighbor = polygon(2, i);
+            if (ti_neighbor > 0) {
+                Triangle &neighbor_triangle = m_triangles[ti_neighbor];
+                for (int j = 0; j < 3; ++j) {
+                    // the neighbor triangle has the edge p2->p1
+                    if (neighbor_triangle.point_indices[j] == p2) {
+                        neighbor_triangle.linked_triangles[j] = ti;
 
-                    break;
-                }
-            }
-        }
-
-
-    }
-
-    // edge and its owner triangle
-    void collect_edges(std::map<Edge, int> & edges, int triangle_index,
-                       int point_index)
-    {
-        Triangle & t = m_triangles[triangle_index];
-        if (t.circumcircle_covers(m_points.col(point_index))) {
-            t.bad = true;
-            if (t.has_child()) {
-                for (int i = 0; i < 3; ++i) {
-                    int cti = t.child_triangle_indices(i);
-                    if (cti > 0) {
-                        collect_edges(edges, cti, point_index);
-                    }
-                    else {
                         break;
                     }
                 }
             }
-            else {
-                // leaf triangle
-                auto insert = [&](int v1, int v2) {
-                    int p1 = t.point_indices(v1);
-                    int p2 = t.point_indices(v2);
-                    auto result = edges.insert(
-                            std::make_pair(Edge(p1, p2), triangle_index));
-                    if (result.second == false) {
-                        edges.erase(result.first);
-                    }
-                };
 
-                insert(0, 1);
-                insert(1, 2);
-                insert(0, 2);
-            }
-        }
-        else {
-            // do nothing if the point is not covered
-        }
-    }
-
-    void reconstruct(std::map<Edge, int> & edges, int point_index)
-    {
-        for (auto & item : edges) {
-            int n = (int)m_triangles.size();
-            m_triangles.emplace_back(m_points, item.first.p1, item.first.p2,
-                                     point_index);
-
-            Triangle & parent_triangle = m_triangles[item.second];
-            for (int i = 0; i < 3; ++i) {
-                if (parent_triangle.child_triangle_indices(i) == -1) {
-                    parent_triangle.child_triangle_indices(i) = n;
-                    break;
-                }
-            }
+            current_triangle.linked_triangles <<
+                    ti_neighbor,
+                    ((i == (n-1))? ti_base :ti + 1),
+                    ((i == 0)? (ti_base + n - 1): (ti - 1));
         }
     }
 
