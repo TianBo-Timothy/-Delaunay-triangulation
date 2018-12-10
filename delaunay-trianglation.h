@@ -65,6 +65,7 @@ private:
          */
         Eigen::Vector3i linked_triangles;
         VectorT center;
+        int parent = -1;
         double radius;
         bool is_parent = false;
     };
@@ -96,6 +97,7 @@ public:
             set_as_parent(bt);
 
             reconstruct(polygon, i);
+            update_parent_radius(bt);
         }
 
         // remove any triangle that has child or has vertex of the super triangle
@@ -354,7 +356,9 @@ private:
             Triangle & current_triangle = m_triangles.back();
 
             // set link from parent to this triangle
-            Triangle & parent_triangle = m_triangles[polygon(1, i)];
+            int ti_parent = polygon(1, i);
+            current_triangle.parent = ti_parent;
+            Triangle & parent_triangle = m_triangles[ti_parent];
             for (int j = 0; j < 3; ++j) {
                 if (parent_triangle.point_indices[j] == p1) {
                     parent_triangle.linked_triangles[j] = ti;
@@ -380,6 +384,39 @@ private:
                     ti_neighbor,
                     ((i == (n-1))? ti_base :ti + 1),
                     ((i == 0)? (ti_base + n - 1): (ti - 1));
+        }
+    }
+
+    /*
+     * update radius of the prarents so that they will cover all children
+     */
+    void update_parent_radius(const std::set<int> & ti_parent) {
+        std::set<int> ti_grand_parent;
+        for (int ti : ti_parent) {
+            if (ti >= 0) {
+                Triangle &t = m_triangles[ti];
+                assert(t.is_parent);
+                bool updated = false;
+                for (int i= 0; i < 3; ++i) {
+                    int ti_child = t.linked_triangles(i);
+                    const Triangle &t_child = m_triangles[ti_child];
+                    if (ti_child >= 0) {
+                        double dis_to_child = (t.center - t_child.center).norm();
+                        if (t.radius < dis_to_child + t_child.radius) {
+                            t.radius = dis_to_child + t_child.radius;
+                            updated = true;
+                        }
+                    }
+                }
+
+                if (updated) {
+                    ti_grand_parent.insert(t.parent);
+                }
+            }
+        }
+
+        if (!ti_grand_parent.empty()) {
+            update_parent_radius(ti_grand_parent);
         }
     }
 
