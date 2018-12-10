@@ -203,7 +203,8 @@ private:
      */
     std::set<int> find_bad_triangles(int point_index) const {
         std::set<int> triangles;
-
+        find_bad_triangle_vertical_recur(0, point_index, triangles);
+/*
         int bt;
         {
             // find a bad triangle vetically
@@ -215,7 +216,7 @@ private:
 
         // then find bad triangles horizontally
         find_bad_triangles(bt, point_index, triangles);
-
+*/
         return  triangles;
     }
 
@@ -244,6 +245,28 @@ private:
         }
 
         return std::make_pair(false, -1);
+    }
+
+    /*
+     * search for a bad triangle that covers the point in the given triangle and its descendents
+     */
+    void find_bad_triangle_vertical_recur(int triangle_index, int point_index, std::set<int>& triangles) const
+    {
+        const Triangle & t = m_triangles[triangle_index];
+
+        if (t.has_child()) {
+            for (int i = 0; i < 3; ++i) {
+                int cti = t.linked_triangles(i);
+                if (cti > 0) {
+                    find_bad_triangle_vertical_recur(cti, point_index, triangles);
+                }
+            }
+        }
+        else {
+            if (t.circumcircle_covers(m_points.col(point_index))) {
+                triangles.insert(triangle_index);
+            }
+        }
     }
 
     // find leaf bad triangles by searching neighbors
