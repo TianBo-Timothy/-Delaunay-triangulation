@@ -155,14 +155,11 @@ public:
             insert(t, 2, 0);
         }
 
-        int num_edges = 0;
-        for (const auto & pnt_set : edges) {
-            num_edges += static_cast<int>(pnt_set.size());
-        }
+        // according to Euler's equation V-E+F = 1 for 2D plane
+        int num_edges = m_num_vertices + m_triangles.size() -1;
 
         // convert set to matrix
-        int n = num_edges;
-        Eigen::Matrix<int, 2, Eigen::Dynamic> ret(2, n);
+        Eigen::Matrix<int, 2, Eigen::Dynamic> ret(2, num_edges);
 
         int i = 0;
         for (int p1 = 0; p1 < m_num_vertices; ++p1) {
