@@ -91,7 +91,7 @@ public:
 
             std::set<int> bt = find_bad_triangles(i);
             set_as_parent(bt);
-            Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
+            auto polygon = get_surrouding_polygon(bt);
 
             reconstruct(polygon, i);
             update_parent_radius(bt);
@@ -233,7 +233,7 @@ private:
      * holds the edge. Note that edges belong to two bad triangles will be removed, so that for each
      * edge, there will be only one parent.
      */
-    Eigen::MatrixXi get_surrouding_polygon(const std::set<int> & triangle_index) const
+    std::map<std::pair<int, int>, int> get_surrouding_polygon(const std::set<int> & triangle_index) const
     {
         auto reverse = [](const std::pair<int, int>& p) {
             return std::make_pair(p.second, p.first);
@@ -261,22 +261,7 @@ private:
             }
         }
 
-        // convert the map to matrix
-        int n = (int)edge_records.size();
-        Eigen::MatrixXi ret(2, n);
-        auto it = edge_records.begin();
-        int i = 0;
-        do {
-            ret(0, i) = it->first.first;
-            ret(1, i) = it->second;
-
-            it = edge_records.lower_bound(std::make_pair(it->first.second, 0));
-            ++i;
-        } while (it != edge_records.begin() && it != edge_records.end());
-
-        assert(i == n);
-
-        return ret;
+        return edge_records;
     }
 
     void set_as_parent(const std::set<int> & triangle_index)
@@ -286,12 +271,12 @@ private:
         }
     }
 
-    void reconstruct(const Eigen::MatrixXi & polygon, int point_index)
+    void reconstruct(const std::map<std::pair<int, int>, int> & polygon, int point_index)
     {
-        int n = polygon.cols();
-        for (int i = 0; i < n; ++i) {
-            int p1 = polygon(0, i);
-            int p2 = polygon(0, (i < (n-1))? i+1: 0);
+        for (const auto & edge : polygon) {
+            int p1 = edge.first.first;
+            int p2 = edge.first.second;
+            int ti_parent = edge.second;
 
             int ti = (int)m_triangles.size();   // index to the new triangle
 
@@ -299,7 +284,6 @@ private:
             Triangle & current_triangle = m_triangles.back();
 
             // set link from parent to this triangle
-            int ti_parent = polygon(1, i);
             current_triangle.parent = ti_parent;
             Triangle & parent_triangle = m_triangles[ti_parent];
             for (int j = 0; j < 3; ++j) {
