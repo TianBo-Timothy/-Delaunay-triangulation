@@ -1,6 +1,6 @@
 /**
  * Build with the command
- * g++ --std=c++11 -I /path/to/your/eigen/libary -o testdt test.cpp
+ * g++ --std=c++11 -I /path/to/your/eigen/libary -O3 -o testdt test.cpp
  */
 
 #include "delaunay-trianglation.h"
