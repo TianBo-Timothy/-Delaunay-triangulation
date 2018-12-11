@@ -253,6 +253,9 @@ private:
     void find_bad_triangle_vertical_recur(int triangle_index, int point_index, std::set<int>& triangles) const
     {
         const Triangle & t = m_triangles[triangle_index];
+        if (!t.circumcircle_covers(m_points.col(point_index))) {
+            return;
+        }
 
         if (t.has_child()) {
             for (int i = 0; i < 3; ++i) {
@@ -263,9 +266,7 @@ private:
             }
         }
         else {
-            if (t.circumcircle_covers(m_points.col(point_index))) {
-                triangles.insert(triangle_index);
-            }
+            triangles.insert(triangle_index);
         }
     }
 
