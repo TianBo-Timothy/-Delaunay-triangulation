@@ -137,7 +137,8 @@ public:
      */
     Eigen::Matrix<int, 2, Eigen::Dynamic> get_edges() const
     {
-        std::set<std::pair<int, int>> edges;
+        std::vector<std::set<int>> edges(m_num_vertices);
+
         auto insert = [&](const Triangle & t, int a, int b) {
             int p1 = t.point_indices(a);
             int p2 = t.point_indices(b);
@@ -145,7 +146,7 @@ public:
             if (p1 > p2) {
                 std::swap(p1, p2);
             }
-            (void) edges.insert(std::make_pair(p1, p2));
+            (void) edges[p1].insert(p2);
         };
 
         for (const auto & t : m_triangles) {
@@ -154,13 +155,22 @@ public:
             insert(t, 2, 0);
         }
 
+        int num_edges = 0;
+        for (const auto & pnt_set : edges) {
+            num_edges += static_cast<int>(pnt_set.size());
+        }
+
         // convert set to matrix
-        int n = edges.size();
+        int n = num_edges;
         Eigen::Matrix<int, 2, Eigen::Dynamic> ret(2, n);
+
         int i = 0;
-        for (const auto & item : edges) {
-            ret.col(i) << item.first, item.second;
-            ++i;
+        for (int p1 = 0; p1 < m_num_vertices; ++p1) {
+            const auto & pnt_set = edges[p1];
+            for (int p2 : pnt_set) {
+                ret.col(i) << p1, p2;
+                ++i;
+            }
         }
 
         return ret;
