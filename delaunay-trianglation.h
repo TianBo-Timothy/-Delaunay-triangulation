@@ -129,6 +129,16 @@ public:
         return ret;
     }
 
+    Eigen::Matrix<double, 2, Eigen::Dynamic> get_voronoi_centers() const
+    {
+        int n = m_triangles.size();
+        Eigen::Matrix<int, 2, Eigen::Dynamic> ret(2, n);
+        for (int i = 0; i < n; ++i) {
+            ret.col(i) = m_triangles[i].center;
+        }
+        return ret;
+    }
+
     /**
      * Get triangles after triangulation
      *
