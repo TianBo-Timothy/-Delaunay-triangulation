@@ -204,47 +204,7 @@ private:
     std::set<int> find_bad_triangles(int point_index) const {
         std::set<int> triangles;
         find_bad_triangle_vertical_recur(0, point_index, triangles);
-/*
-        int bt;
-        {
-            // find a bad triangle vetically
-            auto result = find_bad_triangle_recur(0, point_index);
-            assert(result.first);
-
-            bt = result.second;
-        }
-
-        // then find bad triangles horizontally
-        find_bad_triangles(bt, point_index, triangles);
-*/
         return  triangles;
-    }
-
-    /*
-     * search for a bad triangle that covers the point in the given triangle and its descendents
-     */
-    std::pair<bool, int> find_bad_triangle_recur(int triangle_index, int point_index) const
-    {
-        const Triangle & t = m_triangles[triangle_index];
-
-        if (t.has_child()) {
-            for (int i = 0; i < 3; ++i) {
-                int cti = t.linked_triangles(i);
-                if (cti > 0) {
-                    auto result = find_bad_triangle_recur(cti, point_index);
-                    if (result.first) {
-                        return  result;
-                    }
-                }
-            }
-        }
-        else {
-            if (t.circumcircle_covers(m_points.col(point_index))) {
-                return std::make_pair(true, triangle_index);
-            }
-        }
-
-        return std::make_pair(false, -1);
     }
 
     /*
@@ -267,31 +227,6 @@ private:
         }
         else {
             triangles.insert(triangle_index);
-        }
-    }
-
-    // find leaf bad triangles by searching neighbors
-    void find_bad_triangles(int triangle_index, int point_index, std::set<int>& triangles) const
-    {
-        if (triangle_index == -1) {
-            return;
-        }
-
-        auto it = triangles.find(triangle_index);
-        if (it != triangles.end()) {
-            // has been added, ignore it
-            return;
-        }
-
-        const Triangle & t = m_triangles[triangle_index];
-        if (!t.circumcircle_covers(m_points.col(point_index))) {
-            return;
-        }
-
-        triangles.insert(triangle_index);
-
-        for (int i = 0; i < 3; ++i) {
-            find_bad_triangles(t.linked_triangles(i), point_index, triangles);
         }
     }
 
