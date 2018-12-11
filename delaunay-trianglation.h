@@ -31,7 +31,7 @@ private:
             radius = U.norm();
             center = U + points.col(p1);
 
-            linked_triangles.setConstant(-1);
+            child_triangles.setConstant(-1);
         }
 
         bool circumcircle_covers(const VectorT & p) const
@@ -57,10 +57,10 @@ private:
          * edge 1: (point_indices[1], point_indices[2])
          * edge 2: (point_indices[2], point_indices[0])
          *
-         * if the triangle has children, linked_triangles[i] is the index to the child triangle that
+         * if the triangle has children, child_triangles[i] is the index to the child triangle that
          * corconstructed with edge i
          */
-        Eigen::Vector3i linked_triangles;
+        Eigen::Vector3i child_triangles;
         VectorT center;
         int parent = -1;
         double radius;
@@ -90,8 +90,8 @@ public:
         for (int i = 0; i < m_num_vertices; ++i) {
 
             std::set<int> bt = find_bad_triangles(i);
-            Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
             set_as_parent(bt);
+            Eigen::MatrixXi polygon = get_surrouding_polygon(bt);
 
             reconstruct(polygon, i);
             update_parent_radius(bt);
@@ -212,7 +212,7 @@ private:
 
         if (t.has_child()) {
             for (int i = 0; i < 3; ++i) {
-                int cti = t.linked_triangles(i);
+                int cti = t.child_triangles(i);
                 if (cti > 0) {
                     find_bad_triangle_vertical_recur(cti, point_index, triangles);
                 }
@@ -279,11 +279,10 @@ private:
         return ret;
     }
 
-    void set_as_parent(const std::set<int> & triangle_index) {
+    void set_as_parent(const std::set<int> & triangle_index)
+    {
         for (int ti : triangle_index) {
-            Triangle &t = m_triangles[ti];
-            t.is_parent = true;
-            t.linked_triangles.setConstant(-1);
+            m_triangles[ti].is_parent = true;
         }
     }
 
@@ -305,7 +304,7 @@ private:
             Triangle & parent_triangle = m_triangles[ti_parent];
             for (int j = 0; j < 3; ++j) {
                 if (parent_triangle.point_indices[j] == p1) {
-                    parent_triangle.linked_triangles[j] = ti;
+                    parent_triangle.child_triangles[j] = ti;
                     break;
                 }
             }
@@ -323,7 +322,7 @@ private:
                 assert(t.is_parent);
                 bool updated = false;
                 for (int i= 0; i < 3; ++i) {
-                    int ti_child = t.linked_triangles(i);
+                    int ti_child = t.child_triangles(i);
                     const Triangle &t_child = m_triangles[ti_child];
                     if (ti_child >= 0) {
                         double dis_to_child = (t.center - t_child.center).norm();
